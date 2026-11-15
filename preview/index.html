@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>古筝演奏琴谱提词器 · 切谱批准</title>
+  <style>
+    body { margin: 0; background: #111; color: #d7e6d8; font: 14px/1.5 "Microsoft YaHei", sans-serif; }
+    header { padding: 16px 20px 8px; }
+    h1 { font-size: 18px; font-weight: 600; margin: 0 0 6px; color: #40ff5e; }
+    p { margin: 0; color: #8aa890; max-width: 760px; }
+    main { display: flex; flex-wrap: wrap; gap: 20px; padding: 12px 20px 28px; align-items: flex-start; }
+    .stage { background: #000; width: 480px; height: 352px; flex: none; border: 1px solid #1d5a30; }
+    .stage img { display: block; width: 480px; height: 352px; object-fit: contain; background: #000; }
+    .side { flex: 1; min-width: 280px; }
+    button, select, input[type="text"] {
+      background: #04180a; color: #40ff5e; border: 1px solid #2a4a30;
+      border-radius: 8px; padding: 8px 12px; font: inherit;
+    }
+    button { cursor: pointer; }
+    button.on { border-color: #40ff5e; }
+    input[type="file"] { color: #d7e6d8; max-width: 280px; }
+    .row { display: flex; gap: 8px; align-items: center; margin: 10px 0; flex-wrap: wrap; }
+    .meta { color: #9eb8a2; white-space: pre-wrap; }
+    label { color: #8aa890; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>切好再批准</h1>
+    <p>这是电脑上的入口，不是眼镜。把谱放进仓库的「谱子图片/曲名/」，或在这里上传。看每一屏和眼镜上一样的 480×352。你点批准之后，才在 dist 里准备好一份给乐奇工作室导入的包。已经真机通过的那份 aix 不会被盖掉。</p>
+  </header>
+  <main>
+    <div class="stage"><img id="view" alt="" /></div>
+    <div class="side">
+      <div class="row">
+        <label>曲名 <input id="title" type="text" value="" /></label>
+        <label>调 <input id="key" type="text" value="D" size="2" /></label>
+      </div>
+      <div class="row">
+        <input id="files" type="file" accept="image/*" multiple />
+        <button id="upload" type="button">放进谱子图片</button>
+      </div>
+      <div class="row">
+        <button id="render" type="button">切屏</button>
+        <select id="song"></select>
+        <button id="l2" type="button">每页 2 行</button>
+        <button id="l3" type="button" class="on">每页 3 行</button>
+      </div>
+      <div class="row">
+        <button id="prev" type="button">上一屏</button>
+        <button id="next" type="button">下一屏</button>
+        <span id="pos">—</span>
+      </div>
+      <div class="row">
+        <button id="approve" type="button">批准，准备导入包</button>
+      </div>
+      <div id="meta" class="meta">先放谱，再切屏。</div>
+    </div>
+  </main>
+  <script>
+    const meta = document.getElementById('meta');
+    const pos = document.getElementById('pos');
+    const view = document.getElementById('view');
+    const songSel = document.getElementById('song');
+    let songs = [];
+    let lines = '3';
+    let idx = 0;
+
+    function current() {
+      return songs.find((s) => s.id === songSel.value) || songs[0] || null;
+    }
+    function frames() {
+      const song = current();
+      return song && song.screens ? (song.screens[lines] || []) : [];
+    }
+    function paint() {
+      const list = frames();
+      if (!list.length) {
+        view.removeAttribute('src');
+        pos.textContent = '—';
+        return;
+      }
+      idx = Math.max(0, Math.min(idx, list.length - 1));
+      view.src = list[idx] + '?t=' + Date.now();
+      pos.textContent = (idx + 1) + ' / ' + list.length;
+    }
+    function fillSongs() {
+      const keep = songSel.value;
+      songSel.innerHTML = '';
+      songs.forEach((s) => {
+        const o = document.createElement('option');
+        o.value = s.id;
+        o.textContent = s.title;
+        songSel.appendChild(o);
+      });
+      if (keep) songSel.value = keep;
+    }
+    async function loadSongs() {
+      const res = await fetch('/api/songs');
+      const data = await res.json();
+      songs = data.songs || [];
+      fillSongs();
+      paint();
+      if (!songs.length) meta.textContent = '谱子图片里还没有曲目。上传，或把 jpg 放进「谱子图片/曲名/」。';
+    }
+    async function asJpeg(file) {
+      if (/jpe?g$/i.test(file.name) && file.type === 'image/jpeg') return file;
+      const bmp = await createImageBitmap(file);
+      const c = document.createElement('canvas');
+      c.width = bmp.width;
+      c.height = bmp.height;
+      c.getContext('2d').drawImage(bmp, 0, 0);
+      bmp.close();
+      const blob = await new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.92));
+      return blob;
+    }
+    document.getElementById('upload').onclick = async () => {
+      const title = document.getElementById('title').value.trim();
+      const input = document.getElementById('files');
+      if (!title || !input.files.length) { meta.textContent = '写曲名，并选图。'; return; }
+      const body = new FormData();
+      body.append('title', title);
+      body.append('key', document.getElementById('key').value || 'D');
+      for (const file of input.files) body.append('files', await asJpeg(file), 'page.jpg');
+      meta.textContent = '正在放进谱子图片…';
+      const res = await fetch('/api/upload', { method: 'POST', body });
+      const data = await res.json();
+      meta.textContent = data.error || ('已放进 谱子图片/' + data.title);
+      await loadSongs();
+    };
+    document.getElementById('render').onclick = async () => {
+      meta.textContent = '…';
+      const res = await fetch('/api/render', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) { meta.textContent = data.error; return; }
+      songs = data.songs || [];
+      fillSongs();
+      idx = 0;
+      paint();
+      meta.textContent = '看每一屏。可以的话再批准。';
+    };
+    document.getElementById('l2').onclick = () => { lines = '2'; idx = 0; document.getElementById('l2').className = 'on'; document.getElementById('l3').className = ''; paint(); };
+    document.getElementById('l3').onclick = () => { lines = '3'; idx = 0; document.getElementById('l3').className = 'on'; document.getElementById('l2').className = ''; paint(); };
+    document.getElementById('prev').onclick = () => { idx -= 1; paint(); };
+    document.getElementById('next').onclick = () => { idx += 1; paint(); };
+    songSel.onchange = () => { idx = 0; paint(); };
+    document.getElementById('approve').onclick = async () => {
+      meta.textContent = '…';
+      const res = await fetch('/api/approve', { method: 'POST' });
+      const data = await res.json();
+      meta.textContent = data.error || ('可以拿去乐奇工作室导入：\n' + data.dir + '\n' + data.zip);
+    };
+    loadSongs().catch((err) => { meta.textContent = '请在 preview 目录运行 node serve.mjs ，再用浏览器打开它印出的地址。\n' + err; });
+  </script>
+</body>
+</html>

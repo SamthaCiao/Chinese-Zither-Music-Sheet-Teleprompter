@@ -1,0 +1,28 @@
+# 依赖和核对产物
+preview/node_modules/
+dist/
+preview/out/
+.cursor/
+
+# 别人的谱：只留在本机。公开仓库不带这些图，也不带打进去的原图。
+谱子图片/**
+!谱子图片/README.md
+scores/catalog.json
+aiui-agent/songs.js
+aiui-agent/assets/faruxue/
+aiui-agent/assets/yequ/
+aiui-agent/assets/zhongli/
+aiui-agent/assets/score-1.jpg
+aiui-agent/assets/score-2.jpg
+aiui-agent/assets/score-3.jpg
+aiui-agent/assets/score.png
+aiui-agent/assets/score-pack.js
+aiui-agent/assets/score-image.js
+aiui-agent/assets/faruxue-b64.js
+
+# 打好的资源包里嵌着上面的谱
+*.aix
+
+.env
+.env.*
+*.log
