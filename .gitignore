@@ -21,8 +21,9 @@ aiui-agent/assets/score-pack.js
 aiui-agent/assets/score-image.js
 aiui-agent/assets/faruxue-b64.js
 
-# 打好的资源包里嵌着上面的谱
+# 打好的资源包里嵌着谱图，公开仓库不放，避免直接下载取出谱面
 *.aix
+古筝演奏琴谱提词器.aix
 
 .env
 .env.*
