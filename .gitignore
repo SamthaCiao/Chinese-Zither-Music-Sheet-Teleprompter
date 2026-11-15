@@ -3,6 +3,7 @@ preview/node_modules/
 dist/
 preview/out/
 .cursor/
+docs/
 
 # 别人的谱：只留在本机。公开仓库不带这些图，也不带打进去的原图。
 谱子图片/**
